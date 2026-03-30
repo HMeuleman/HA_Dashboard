@@ -1,0 +1,1665 @@
+button_card_templates:
+  nozzle_temp:
+    show_state: true
+    show_label: true
+    layout: vertical
+    size: 40%
+    styles:
+      card:
+        - border-radius: 12px
+        - padding: 12px
+        - color: white
+        - font-weight: bold
+        - animation: |
+            [[[
+              const temp = Number(entity.state);
+              const target = Number(states[entity.entity_id.replace('_temperature','_target')].state);
+              if (target > 0 && temp < target - 2) {
+                return "blink 1s ease-in-out infinite";
+              }
+              return "none";
+            ]]]
+        - background: |
+            [[[
+              const temp = Number(entity.state);
+              const target = Number(states[entity.entity_id.replace('_temperature','_target')].state);
+
+              // Idle → grijs
+              if (target === 0) {
+                return "rgb(80,80,80)";
+              }
+
+              // Kleurverloop blauw → rood
+              const t = Math.min(Math.max(temp, 0), 300) / 300;
+              const r = Math.round(255 * t);
+              const b = Math.round(255 * (1 - t));
+              return `rgb(${r}, 0, ${b})`;
+            ]]]
+      state:
+        - font-size: 18px
+      label:
+        - font-size: 12px
+        - opacity: 0.6
+        - padding-top: 4px
+    extra_styles: |
+      @keyframes blink {
+        0% { filter: brightness(1); }
+        50% { filter: brightness(1.7); }
+        100% { filter: brightness(1); }
+      }
+views:
+  - path: default_view
+    title: Home
+    cards:
+      - type: custom:apexcharts-card
+        experimental:
+          color_threshold: true
+        graph_span: 23h
+        header:
+          title: Dynamische stroomprijs
+          show: true
+          show_states: true
+          colorize_states: true
+        span:
+          start: day
+        now:
+          show: true
+          label: NU
+        series:
+          - entity: sensor.zonneplan_current_electricity_tariff
+            name: ' '
+            show:
+              extremas: true
+              datalabels: false
+              in_header: before_now
+              header_color_threshold: true
+            type: column
+            float_precision: 0
+            data_generator: |
+              return entity.attributes.forecast.map((forecast, index) => {
+                return [new Date(forecast.datetime).getTime(), forecast.electricity_price / 100000];
+              });
+            color_threshold:
+              - value: 0
+                color: '#32cd32'
+              - value: 25
+                color: fd8639
+              - value: 30
+                color: '#ff0000'
+        yaxis:
+          - id: '1'
+            min: ~0
+            max: ~30
+            decimals: 0
+            show: false
+            apex_config:
+              title:
+                text: ct/kWh
+              tickAmount: 4
+        apex_config:
+          xaxis:
+            type: datetime
+            tooltip:
+              enabled: c
+          chart:
+            height: 250px
+          stroke:
+            show: false
+            width: 4
+        card_mod:
+          style: |
+            #header__title {
+              color: #FFFFFF !important;
+              text-align: center;
+              font-size: 14px !important;
+            }
+            .apexcharts-gridlines-horizontal {
+              visibility: hidden;
+            }
+      - type: custom:stack-in-card
+        title: Totaal verbruik
+        cards:
+          - type: custom:gauge-card-pro
+            entity: sensor.electriciteit_meter_3
+            name: Totaal
+            needle: true
+            round: small
+            gradient: true
+            gradient_resolution: high
+            min: -17
+            segments:
+              - from: -7
+                color: var(--green-color)
+              - from: -2
+                color: var(--yellow-color)
+              - from: 2
+                color: var(--orange-color)
+              - from: 5
+                color: var(--red-color)
+            max: 17
+            titles:
+              primary: '{{ state_attr(entity, ''friendly_name'') }}'
+            card_mod:
+              style: |
+                ha-card { --ha-card-border-width: 0; }
+          - type: custom:bar-card
+            title: Per Fase
+            entities:
+              - entity: sensor.electricity_l1_3
+                name: L1
+              - entity: sensor.electricity_l2_3
+                name: L2
+              - entity: sensor.electricity_l3_3
+                name: L3
+            direction: up
+            height: 200
+            width: 70%
+            stack: horizontal
+            max: 7
+            min: -7
+            decimal: 3
+            positions:
+              icon: inside
+              name: inside
+              indicator: outside
+            card_mod:
+              style: |-
+                ha-card {
+                  bar-card-backgroundbar { 
+                    background: linear-gradient(red 5%, orange 20%, yellow 35%, yellow 49%,  black 50%, yellow 51%, yellow 65%, orange 80%, red 95%); 
+                    border-radius: 25px;
+                    opacity: 1;
+                   } 
+                  bar-card-currentbar { 
+                    #background: linear-gradient(green 25%, yellow 50%, orange 75%, red 100%);       
+                    #background: linear-gradient(red 5%, orange 20%, yellow 35%, green 50%, yellow 65%, orange 80%, red 95%);       
+                    clip-path: polygon(5% calc(102% - var(--bar-percent)), 95% calc(102% - var(--bar-percent)), 95% calc(98% - var(--bar-percent)), 5% calc(98% - var(--bar-percent)));
+                    border-radius: 5px;
+                    background: white
+                  }
+                  bar-card-value { 
+                    font-size: 1.3rem;
+                    font-weight: bold !important
+                    line-height:.1.3rem;
+                    margin-bottom: 20px;
+                    color: white
+                  }
+                  bar-card-name { 
+                    color: white
+                  }
+                  --card-mod-icon-color: white
+                } 
+          - type: button
+            name: Meterkast Groepen
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.popup
+                data:
+                  title: Meterkast Groepen
+                  content: >
+                    <strong style="color: red;">L1:</strong><br> <p> 9)
+                    &nbsp&nbspDroger </p> <p>10) &nbspOven</p> <p> 11)
+                    &nbspVaatwasser</p> <p> 12) &nbspKelder, Garage, Carport</p>
+                    <p> 14) &nbspWarmtepomp Boiler.</p> <strong style="color:
+                    red;">L2:</strong><br> <p> 1) &nbsp&nbspKeuken,
+                    Bijkeuken</p> <p> 2) &nbsp&nbspWasmachine</p> <p> 3)
+                    &nbsp&nbspHal, Portaal, Toilet, Overloop</p> <p> 4)
+                    &nbsp&nbspWoonkamer</p> <p> 13) Technisch Ruimte, WP
+                    Binnenunit.</p> <strong style="color: red;">L3:</strong><br>
+                    <p> 5) &nbsp&nbspEetkamer, Hobbykamer, Meterkast</p> <p> 6)
+                    &nbsp&nbspSlaapkamer Achter</p> <p> 7) &nbsp&nbspSlaapkamer
+                    Voor, Plafond Licht Woonkamer</p> <p> 8)
+                    &nbsp&nbspBadkamers, Technische Ruimte</p> <p> 13) WP
+                    Buitenunit.</p>
+      - cardstyle: lite
+        wide: false
+        large_font: true
+        show_solar: true
+        show_battery: true
+        show_grid: true
+        center_no_grid: false
+        card_height: 100%
+        card_width: 100%
+        decimal_places: 3
+        decimal_places_energy: 2
+        dynamic_line_width: true
+        max_line_width: 4
+        min_line_width: 1
+        inverter:
+          modern: true
+          colour: '#db3939'
+          autarky: power
+          model: sunsynk
+          auto_scale: true
+          three_phase: true
+          navigate: ''
+          label_autarky: ''
+          label_ratio: ''
+        battery:
+          energy: 20000
+          shutdown_soc: 7
+          show_daily: true
+          count: 1
+          max_power: 20000
+          invert_power: false
+          soc_end_of_charge: 100
+          animate: true
+          dynamic_colour: true
+          show_remaining_energy: true
+          label_daily_chrg: Laden
+          label_daily_dischrg: Ontladen
+          colour: '#d01bab'
+          invert_flow: false
+        battery2:
+          energy: 0
+          shutdown_soc: 20
+          soc_end_of_charge: 100
+          invert_power: false
+          hide_soc: false
+          colour: '#ffc0cb'
+          show_remaining_energy: true
+          remaining_energy_to_shutdown: false
+          show_absolute: false
+          auto_scale: true
+          dynamic_colour: true
+          linear_gradient: true
+          animate: true
+          path_threshold: 100
+          navigate: ''
+          invert_flow: false
+        solar:
+          show_daily: true
+          mppts: 2
+          pv1_name: Dak
+          pv2_name: Schuur
+          pv1_max_power: 2000
+          pv2_max_power: 4500
+          auto_scale: false
+          dynamic_colour: true
+          custom_label: Dagelijkse Zonne Energie
+        load:
+          show_daily: true
+          dynamic_colour: false
+          label_daily_load: Today
+          additional_loads: 1
+          load1_name: WP
+          load1_icon: mdi:heat-pump-outline
+        grid:
+          show_daily_buy: false
+          show_daily_sell: false
+          show_nonessential: true
+          auto_scale: false
+        type: custom:sunsynk-power-flow-card
+        entities:
+          use_timer_248: switch.sunsynk_toggle_system_timer
+          priority_load_243: switch.sunsynk_toggle_priority_load
+          inverter_voltage_154: sensor.solis_a_phase_voltage
+          load_frequency_192: sensor.solis_grid_frequency
+          inverter_power_175: sensor.sunsynk_inverter_power
+          grid_connected_status_194: binary_sensor.sunsynk_grid_connected_status
+          inverter_status_59: sensor.sunsynk_overall_state
+          day_battery_charge_70: sensor.solis_today_battery_charge_energy
+          day_battery_discharge_71: sensor.solis_today_battery_discharge_energy
+          battery_soc_184: sensor.solis_battery_soc
+          grid_power_169: sensor.electricity_house
+          day_grid_import_76: sensor.sunsynk_day_grid_import
+          day_grid_export_77: sensor.sunsynk_day_grid_export
+          grid_ct_power_172: sensor.electricity_l1_3
+          day_load_energy_84: sensor.energy_usage_house
+          essential_power: none
+          nonessential_power: none
+          aux_power_166: sensor.sunsynk_aux_power
+          day_pv_energy_108: sensor.zonnepalen_levering_dagelijks
+          pv1_power_186: sensor.solaredge_dak_i1_ac_power
+          pv2_power_187: sensor.solaredge_schuur_i2_ac_power
+          pv1_voltage_109: sensor.solaredge_dak_i1_ac_voltage_ab
+          pv1_current_110: sensor.solaredge_dak_i1_ac_current
+          pv2_voltage_111: sensor.solaredge_schuur_i2_ac_voltage_ab
+          pv2_current_112: sensor.solaredge_schuur_i2_ac_current
+          grid_ct_power_total: sensor.electriciteit_meter_3
+          grid_ct_power_L3: sensor.electricity_l3_3
+          grid_ct_power_L2: sensor.electricity_l2_3
+          battery_power_190: sensor.solis_battery_power_net
+          battery_voltage_183: sensor.solis_battery_voltage
+          battery_temp_182: sensor.solis_temperature
+          battery_soh: sensor.solis_battery_soh
+          battery_status: sensor.solis_status
+          battery_current_direction: sensor.solis_battery_current_direction
+          essential_load1: sensor.wp_vermogen
+      - type: entities
+        entities:
+          - entity: switch.stopcontact_pc
+            name: PC Hobbykamer
+          - entity: switch.zwembad_pomp_wp
+            name: Zwembad (Pomp en WP)
+          - entity: switch.shelly_remko_boiler_switch_0
+            name: Boiler Temp 55C
+        title: Stopcontact
+        show_header_toggle: false
+      - type: grid
+        square: false
+        columns: 1
+        cards:
+          - type: entities
+            entities:
+              - entity: sensor.knmi_weersverwachting
+                name: Weersverwachting
+              - entity: sensor.knmi_neerslag_vandaag
+                name: Neerslag Vandaag
+              - entity: sensor.knmi_neerslag_morgen
+                name: Neerslag Morgen
+              - entity: sensor.knmi_windsnelheid
+                name: Windsnelheid
+              - entity: sensor.knmi_luchtdruk
+                name: Luchtdruk
+              - entity: sensor.knmi_luchtvochtigheid
+                name: Luchtvochtigheid
+              - entity: binary_sensor.knmi_waarschuwing
+                name: Waarschuwing
+              - entity: binary_sensor.knmi_zon
+                name: Zon
+            title: KNMI
+          - show_current: true
+            show_forecast: true
+            type: weather-forecast
+            entity: weather.knmi_thuis
+            forecast_type: daily
+            name: Houten
+      - type: alarm-panel
+        entity: alarm_control_panel.blink_home
+    type: masonry
+    icon: mdi:home
+  - type: masonry
+    path: verlichting
+    title: Verlichting
+    cards:
+      - type: entities
+        entities:
+          - entity: light.woonkamer
+          - entity: light.woonkamer_lamp
+          - entity: light.woonkamer_ledstrip
+            name: Woonkamer Led strip 1
+          - entity: light.woonkamer_ledstrip2
+            name: Woonkamer Led strip 2
+          - entity: switch.tafel_lamp_switch
+            name: Eetkamer Tafel
+          - entity: switch.nis_lamp_switch
+            name: Eetkamer Nis
+          - entity: light.keuken
+          - entity: light.keuken_eiland_dimmer
+          - entity: light.keuken_aanrecht_dimmer
+          - entity: light.0x2c1165fffe47ec2e
+            name: Garage
+          - entity: light.gang_lamp
+            name: Gang
+          - entity: light.gang_ledstrip
+            name: Kapstop
+          - entity: light.overloop_lamp_1
+            name: Overloop 1
+          - entity: light.overloop_lamp_2
+            name: Overloop 2
+          - entity: light.slaapkamer_ph_dimmer
+            name: Slaapkamer Piret en Hante
+          - entity: light.lamp_vera
+            name: Slaapkamer Vera
+          - entity: light.schuur_ledstrip_1
+            name: Schuur Led strip 1
+          - entity: light.schuur_ledstrip_2
+        title: Lampen
+        state_color: true
+      - type: entities
+        entities:
+          - sensor.illuminance
+        title: Lichtsterkte
+    icon: mdi:lightbulb
+  - type: masonry
+    path: verwarming
+    title: Verwarming
+    icon: mdi:home-thermometer
+    cards:
+      - type: thermostat
+        entity: climate.woonkamer
+        show_current_as_primary: true
+      - type: thermostat
+        entity: climate.kantoor
+        show_current_as_primary: true
+      - type: thermostat
+        entity: climate.hal
+        show_current_as_primary: true
+      - type: thermostat
+        entity: climate.slp_kamer_2
+        name: Slaapkamer P&H
+        show_current_as_primary: true
+      - type: thermostat
+        entity: climate.slp_kamer_1
+        name: Slaapkamer Vera
+        show_current_as_primary: true
+      - type: thermostat
+        entity: climate.slaapk_4
+        name: Slaapkamer Esme
+        show_current_as_primary: true
+      - type: thermostat
+        entity: climate.slaapk_3
+        name: Slaapkamer Romi
+        show_current_as_primary: true
+      - type: entities
+        entities:
+          - entity: sensor.remko_mqtt_opmode
+          - entity: sensor.remko_mqtt_out_temp
+          - entity: sensor.wp_vermogen
+          - entity: sensor.wp_dagelijks_verbruik
+            name: WP Verbruik
+          - entity: sensor.remko_mqtt_verw_water_temp
+          - entity: sensor.remko_mqtt_return_floor_temp
+          - entity: sensor.remko_mqtt_floor_temp
+        title: Remko WP
+  - type: masonry
+    path: ev-charger
+    title: EV Charger
+    icon: mdi:car-electric
+    cards:
+      - type: entities
+        entities:
+          - entity: number.ev_charger_charge_limit
+            name: Charge limit
+          - entity: number.ev_charger_charge_limit_with_on_off
+            name: Charge limit with on off
+          - switch.ev_charger
+        title: EV Charger
+      - type: entities
+        entities:
+          - entity: sensor.evse_load_balancer_load_balancing_state
+            name: Load balancing state
+        title: EVSE Load Balancer
+      - type: entities
+        entities:
+          - entity: binary_sensor.ev_charger_alarm_active
+            name: Alarm active
+          - entity: sensor.ev_charger_alarms
+            name: Alarms
+          - entity: binary_sensor.ev_charger_charging
+            name: Charging
+          - entity: binary_sensor.ev_charger_derated
+            name: Derated
+          - entity: sensor.ev_charger_total_active_energy
+            name: Energie
+          - entity: sensor.ev_charger_last_session_energy
+            name: Energie
+          - entity: binary_sensor.ev_charger_ev_connected
+            name: Ev connected
+          - entity: sensor.ev_charger_ev_status
+            name: Ev status
+          - entity: sensor.ev_charger_ac_frequency
+            name: Frequentie
+          - entity: sensor.ev_charger_voltage
+            name: Spanning
+          - entity: sensor.ev_charger_voltage_phase_b
+            name: Spanning
+          - entity: sensor.ev_charger_voltage_phase_c
+            name: Spanning
+          - entity: sensor.ev_charger_current
+            name: Stroom
+          - entity: sensor.ev_charger_total_active_power
+            name: Vermogen
+          - entity: sensor.ev_charger_power
+            name: Vermogen
+          - entity: sensor.ev_charger_power_phase_b
+            name: Vermogen
+          - entity: sensor.ev_charger_power_phase_c
+            name: Vermogen
+        title: EV Charger
+      - type: entities
+        entities:
+          - entity: switch.ev_charger_enable_offline
+            name: Enable offline
+          - update.ev_charger
+          - entity: number.ev_charger_offline_current
+            name: Offline current
+          - entity: switch.ev_charger_offline_single_phase
+            name: Offline single phase
+          - entity: switch.ev_charger_single_phase
+            name: Single phase
+          - entity: number.ev_charger_time_to_offline
+            name: Time to offline
+        title: EV Charger
+  - type: masonry
+    path: 3d-printer
+    title: 3D Printer
+    icon: mdi:printer-3d
+    cards:
+      - type: grid
+        square: false
+        columns: 1
+        cards:
+          - type: custom:button-card
+            entity: sensor.3d_printer_print_state
+            name: ' '
+            show_state: true
+            show_label: true
+            styles:
+              card:
+                - padding: 16px
+                - border-radius: 12px
+                - background: rgba(60,60,60,0.6)
+                - color: white
+                - font-size: 16px
+              icon:
+                - width: 80px
+                - height: 80px
+              state:
+                - font-size: 22px
+                - font-weight: bold
+                - padding-bottom: 8px
+              label:
+                - icon_height: 50px
+                - text-align: left
+                - font-size: 16px
+                - line-height: 1.4
+                - white-space: pre-line
+                - opacity: 0.8
+            label: |
+              [[[
+                function fmt(sec) {
+                  if (!sec || sec === "unknown" || sec === "unavailable") return "—";
+                  sec = Number(sec);
+                  const h = Math.floor(sec / 3600);
+                  const m = Math.floor((sec % 3600) / 60);
+                  const s = sec % 60;
+                  return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+                }
+
+                const dur = states['sensor.3d_printer_print_duration']?.state;
+                const rem = states['sensor.3d_printer_time_remaining']?.state;
+
+                let end = "—";
+                if (rem && Number(rem) > 0) {
+                  const endDate = new Date(Date.now() + Number(rem) * 1000);
+                  const hh = endDate.getHours().toString().padStart(2,'0');
+                  const mm = endDate.getMinutes().toString().padStart(2,'0');
+                  end = `${hh}:${mm}`;
+                }
+
+                return `Duration: ${fmt(dur)}\nRemaining: ${fmt(rem)}\n🕒 End Time: ${end}`;
+
+              ]]]
+          - type: picture-entity
+            entity: camera.3d_printer_webcam
+          - type: horizontal-stack
+            cards:
+              - show_name: true
+                show_icon: true
+                type: button
+                entity: button.3d_printer_wake_camera
+                icon_height: 50px
+                show_state: true
+                tap_action:
+                  action: toggle
+              - show_name: true
+                show_icon: true
+                type: button
+                entity: light.3d_printer_light
+                icon_height: 50px
+          - type: horizontal-stack
+            cards:
+              - type: custom:button-card
+                template: nozzle_temp
+                entity: sensor.3d_printer_t0_nozzle_temperature
+                name: T0
+                label: |
+                  [[[
+                    const t = states[entity.entity_id.replace('_temperature','_target')]?.state;
+                    return "Set: " + Math.round(Number(t)) + "°C";
+                  ]]]
+              - type: custom:button-card
+                template: nozzle_temp
+                entity: sensor.3d_printer_t1_nozzle_temperature
+                name: T1
+                label: |
+                  [[[
+                    const t = states[entity.entity_id.replace('_temperature','_target')]?.state;
+                    return "Set: " + Math.round(Number(t)) + "°C";   
+                  ]]]
+              - type: custom:button-card
+                template: nozzle_temp
+                entity: sensor.3d_printer_t2_nozzle_temperature
+                name: T2
+                label: |
+                  [[[
+                    const t = states[entity.entity_id.replace('_temperature','_target')]?.state;
+                    return "Set: " + Math.round(Number(t)) + "°C";   
+                  ]]]
+              - type: custom:button-card
+                template: nozzle_temp
+                entity: sensor.3d_printer_t3_nozzle_temperature
+                name: T3
+                label: |
+                  [[[
+                    const t = states[entity.entity_id.replace('_temperature','_target')]?.state;
+                    return "Set: " + Math.round(Number(t)) + "°C";   
+                  ]]]
+          - type: grid
+            columns: 4
+            square: false
+            cards:
+              - type: custom:button-card
+                entity: button.3d_printer_pause_print
+                name: Pause
+                icon: mdi:pause
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  service_data:
+                    entity_id: button.3d_printer_pause_print
+                styles:
+                  icon:
+                    - width: 22px
+                    - height: 22px
+                  name:
+                    - font-size: 12px
+                  card:
+                    - padding: 10px
+                    - border-radius: 10px
+                    - background: rgba(255,255,255,0.08)
+                    - opacity: |
+                        [[[
+                          return states['sensor.3d_printer_print_state'].state === 'printing' ? 1 : 0.3;
+                        ]]]
+                    - pointer-events: |
+                        [[[
+                          return states['sensor.3d_printer_print_state'].state === 'printing' ? 'auto' : 'none';
+                        ]]]
+              - type: custom:button-card
+                entity: button.3d_printer_resume_print
+                name: Resume
+                icon: mdi:play
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  service_data:
+                    entity_id: button.3d_printer_resume_print
+                styles:
+                  icon:
+                    - width: 22px
+                    - height: 22px
+                  name:
+                    - font-size: 12px
+                  card:
+                    - padding: 10px
+                    - border-radius: 10px
+                    - background: rgba(255,255,255,0.08)
+                    - opacity: |
+                        [[[
+                          return states['sensor.3d_printer_print_state'].state === 'paused' ? 1 : 0.3;
+                        ]]]
+                    - pointer-events: |
+                        [[[
+                          return states['sensor.3d_printer_print_state'].state === 'paused' ? 'auto' : 'none';
+                        ]]]
+              - type: custom:button-card
+                entity: button.3d_printer_cancel_print
+                name: Cancel
+                icon: mdi:cancel
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  service_data:
+                    entity_id: button.3d_printer_cancel_print
+                confirmation:
+                  text: Weet je zeker dat je de print wilt annuleren?
+                styles:
+                  icon:
+                    - width: 22px
+                    - height: 22px
+                  name:
+                    - font-size: 12px
+                  card:
+                    - padding: 10px
+                    - border-radius: 10px
+                    - background: rgba(255,80,80,0.25)
+              - type: custom:button-card
+                entity: button.3d_printer_emergency_stop
+                name: STOP
+                icon: mdi:alert-octagon
+                tap_action:
+                  action: call-service
+                  service: button.press
+                  service_data:
+                    entity_id: button.3d_printer_emergency_stop
+                confirmation:
+                  text: >-
+                    NOODSTOP! Printer wordt direct afgebroken. Weet je het
+                    zeker?
+                styles:
+                  icon:
+                    - width: 22px
+                    - height: 22px
+                  name:
+                    - font-size: 12px
+                  card:
+                    - padding: 10px
+                    - border-radius: 10px
+                    - background: rgba(255,0,0,0.45)
+                    - color: white
+      - type: grid
+        square: false
+        columns: 1
+        cards:
+          - type: custom:button-card
+            show_state: false
+            show_label: true
+            show_icon: false
+            show_name: false
+            styles:
+              card:
+                - padding: 16px
+                - border-radius: 12px
+                - background: rgba(60,60,60,0.6)
+                - color: white
+                - font-size: 15px
+              icon:
+                - display: none
+              name:
+                - display: none
+              label:
+                - white-space: pre-line
+                - line-height: 1.3
+                - font-size: 14px
+            label: |
+              [[[
+                function short(str, max=28) {
+                  if (!str) return "—";
+                  return str.length > max ? str.slice(0, max) + "…" : str;
+                }
+
+                function filament(mm) {
+                  if (!mm || mm === "unknown" || mm === "unavailable") return "—";
+                  return (Number(mm) / 1000).toFixed(2) + " m";
+                }
+
+                const filename = states['sensor.3d_printer_filename']?.state;
+                const layerCur = states['sensor.3d_printer_current_layer']?.state;
+                const layerTot = states['sensor.3d_printer_total_layers']?.state;
+
+                const bedCur = states['sensor.3d_printer_bed_temperature']?.state;
+                const bedTar = states['sensor.3d_printer_bed_target_temperature']?.state;
+
+                const filamentUsed = states['sensor.3d_printer_filament_used']?.state;
+                const error = states['sensor.3d_printer_error']?.state;
+
+                let errorLine = "";
+                if (error && error !== "OK") {
+                  errorLine = `\n⚠️ Error: ${error}`;
+                }
+
+                return `File: ${short(filename)}\nLayer: ${layerCur} / ${layerTot}\nFilament: ${filament(filamentUsed)}\nBed: ${bedCur}°C / ${bedTar}°C${errorLine}`;
+              ]]]
+          - type: custom:button-card
+            show_icon: false
+            show_name: false
+            show_state: false
+            show_label: false
+            styles:
+              card:
+                - height: 300px
+                - position: relative
+                - background: >-
+                    radial-gradient(circle at 50% 0%, rgba(255,255,255,0.08),
+                    rgba(0,0,0,0.9))
+                - border-radius: 14px
+                - overflow: hidden
+                - padding: 0
+              custom_fields:
+                bed:
+                  - position: absolute
+                  - left: 50%
+                  - top: 62%
+                  - width: 70%
+                  - height: 40%
+                  - transform: translateX(-50%) skewX(-30deg)
+                  - border: 1px solid rgba(255,255,255,0.35)
+                  - background-image: >-
+                      repeating-linear-gradient(0deg, rgba(255,255,255,0.08),
+                      rgba(255,255,255,0.08) 2px, transparent 2px, transparent
+                      10px), repeating-linear-gradient(90deg,
+                      rgba(255,255,255,0.08), rgba(255,255,255,0.08) 2px,
+                      transparent 2px, transparent 10px)
+                  - box-shadow: 0 18px 30px rgba(0,0,0,0.8)
+                  - border-radius: 6px
+                head:
+                  - position: absolute
+                  - transition: all 0.12s linear
+                  - width: 100%
+                  - height: 100%
+                debug:
+                  - position: absolute
+                  - left: 5%
+                  - top: 15%
+                  - width: 90%
+                  - background: rgba(0,0,0,0.4)
+                  - padding: 8px
+                  - border-radius: 8px
+                  - font-size: 12px
+                  - color: white
+            custom_fields:
+              bed: |
+                [[[
+                  return '<div></div>';
+                ]]]
+              head: |
+                [[[
+                  const raw = states['sensor.3d_printer_toolhead_position']?.state || "";
+                  const match = raw.match(/X\s*(-?[\d.]+)\s*Y\s*(-?[\d.]+)\s*Z\s*(-?[\d.]+)/i);
+                  if (!match) return "";
+
+                  const X = parseFloat(match[1]);
+                  const Y = parseFloat(match[2]);
+                  const Z = parseFloat(match[3]);
+
+                  const maxX = 275;
+                  const maxY = 275;
+                  const maxZ = 275;
+
+                  const nx = X / maxX;
+                  const ny = Y / maxY;
+                  const nz = Z / maxZ;
+                  
+                  // perspectief: schuin van rechts-boven
+                  const isoX = nx + ny * 0.22;
+                  const isoY = ny 
+                  
+                  const left = 5 + isoX * 71;
+                  const top  = 95 - isoY * 37;
+
+                  const hue = 220 - nz * 160;
+                  const color = `hsl(${hue}, 80%, 60%)`;
+                  const shadow = `0 10px 18px rgba(0,0,0,${0.35 + (1 - nz) * 0.35})`;
+
+                  return `<div style="position: absolute; left:${left}%; top:${top}%; width:16px; height:16px; border-radius:50%; background:${color}; box-shadow:${shadow}; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; border:1px solid rgba(255,255,255,0.7); text-shadow:0 1px 2px rgba(0,0,0,0.8);">▲</div>`;
+                ]]]
+              debug: |
+                [[[
+                  const raw = states['sensor.3d_printer_toolhead_position']?.state || "NO RAW VALUE";
+                  const match = raw.match(/X\s*([\d.]+)\s*Y\s*([\d.]+)\s*Z\s*([\d.]+)/i);
+
+                  if (!match) {
+                    return `RAW=${raw} | Calibrating?`;
+                  }
+
+                  const X = parseFloat(match[1]);
+                  const Y = parseFloat(match[2]);
+                  const Z = parseFloat(match[3]);
+
+                  return `X=${X} Y=${Y} Z=${Z}`;
+                ]]]
+          - type: entities
+            entities:
+              - entity: binary_sensor.3d_printer_error
+                name: Error
+              - entity: sensor.3d_printer_filament_used
+                name: Filament Used
+              - entity: sensor.3d_printer_flow_rate
+                name: Flow Rate
+              - entity: sensor.3d_printer_klipper_state
+                name: Klipper State
+              - entity: sensor.3d_printer_part_cooling_fan
+                name: Part Cooling Fan
+              - entity: sensor.3d_printer_print_speed
+                name: Print Speed
+  - type: masonry
+    path: hante
+    title: Hante
+    cards:
+      - type: custom:vertical-stack-in-card
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: custom:mushroom-chips-card
+                chips:
+                  - type: entity
+                    entity: sensor.stopcontact_wasmachine_energy
+                    use_entity_picture: true
+                  - type: entity
+                    entity: sensor.stopcontact_wasmachine_power
+                  - type: spacer
+                  - type: entity
+                    entity: switch.stopcontact_wasmachine
+                    icon_color: accent
+                alignment: justify
+            title: Wasmachine
+          - type: vertical-stack
+            cards:
+              - type: custom:mushroom-chips-card
+                chips:
+                  - type: entity
+                    entity: sensor.stopcontact_droger_energy
+                    use_entity_picture: true
+                  - type: entity
+                    entity: sensor.stopcontact_droger_power
+                  - type: spacer
+                  - type: entity
+                    entity: switch.stopcontact_droger
+                    icon_color: accent
+                alignment: justify
+            title: Droger
+          - type: vertical-stack
+            cards:
+              - type: custom:mushroom-chips-card
+                chips:
+                  - type: entity
+                    entity: sensor.0xa4c138d22dfdc711_energy
+                    use_entity_picture: true
+                  - type: entity
+                    entity: sensor.0xa4c138d22dfdc711_power
+                  - type: spacer
+                  - type: entity
+                    entity: switch.0xa4c138d22dfdc711
+                    icon_color: accent
+                alignment: justify
+            title: Diepvries
+          - type: vertical-stack
+            cards:
+              - type: custom:mushroom-chips-card
+                chips:
+                  - type: entity
+                    entity: sensor.stopcontact_kelder_1_energy
+                    use_entity_picture: true
+                  - type: entity
+                    entity: sensor.stopcontact_kelder_1_power
+                  - type: spacer
+                  - type: entity
+                    entity: switch.stopcontact_kelder_1
+                    icon_color: accent
+                alignment: justify
+            title: Kelder Ontvochtiger Groot
+          - type: vertical-stack
+            cards:
+              - type: custom:mushroom-chips-card
+                chips:
+                  - type: entity
+                    entity: sensor.stopcontact_kelder_2_energy
+                    use_entity_picture: true
+                  - type: entity
+                    entity: sensor.stopcontact_kelder_2_power
+                  - type: spacer
+                  - type: entity
+                    entity: switch.stopcontact_kelder_2
+                    icon_color: accent
+                alignment: justify
+            title: Kelder Ontvochtiger Klein
+          - type: vertical-stack
+            cards:
+              - type: custom:mushroom-chips-card
+                chips:
+                  - type: entity
+                    entity: sensor.stopcontact_pc_energy
+                    use_entity_picture: true
+                  - type: entity
+                    entity: sensor.stopcontact_pc_power
+                  - type: spacer
+                  - type: entity
+                    entity: switch.stopcontact_pc
+                    icon_color: accent
+                alignment: justify
+            title: PC (display)
+      - type: entities
+        entities:
+          - entity: switch.stopcontact_3d_printer
+            name: 3D Printer
+          - entity: switch.stopcontact_matrix_lamp
+            name: The Matrix Lamp
+        title: Stopcontact
+        show_header_toggle: false
+      - include:
+          - switch.stopcontact_kelder_1
+          - switch.stopcontact_kelder_2
+          - switch.stopcontact_kerstboom
+          - switch.zwembad_pomp_wp
+          - switch.stopcontact_matrix_lamp
+        exclude: []
+        discover_existing: true
+        title: Tijdplanner Kelder Ontvochtiger
+        show_header_toggle: false
+        time_step: 15
+        default_editor: single
+        display_options:
+          primary_info: default
+          secondary_info:
+            - relative-time
+            - additional-tasks
+          icon: action
+        sort_by:
+          - relative-time
+          - state
+        customize: {}
+        tags: []
+        exclude_tags: []
+        type: custom:scheduler-card
+      - type: entities
+        entities:
+          - entity: sensor.vocht_en_temp_kelder_humidity
+            name: Luchtvochtigheid
+          - entity: sensor.vocht_en_temp_kelder_temperature
+            name: Temperatuur
+        title: Vocht en Temp Kelder
+      - type: vertical-stack
+        cards:
+          - type: custom:apexcharts-card
+            experimental:
+              color_threshold: true
+            graph_span: 23h
+            header:
+              title: Dynamische stroomprijs
+              show: true
+              show_states: true
+              colorize_states: true
+            span:
+              start: day
+            now:
+              show: true
+              label: NU
+            series:
+              - entity: sensor.zonneplan_current_electricity_tariff
+                name: ' '
+                show:
+                  extremas: true
+                  datalabels: false
+                  in_header: before_now
+                  header_color_threshold: true
+                type: column
+                float_precision: 0
+                data_generator: |
+                  return entity.attributes.forecast.map((forecast, index) => {
+                    return [new Date(forecast.datetime).getTime(), forecast.electricity_price / 100000];
+                  });
+                color_threshold:
+                  - value: 0
+                    color: '#32cd32'
+                  - value: 25
+                    color: '#3b3f3b'
+                  - value: 30
+                    color: '#ff4500'
+            yaxis:
+              - id: '1'
+                min: ~0
+                max: ~30
+                decimals: 0
+                show: false
+                apex_config:
+                  title:
+                    text: ct/kWh
+                  tickAmount: 4
+            apex_config:
+              xaxis:
+                type: datetime
+                tooltip:
+                  enabled: c
+              chart:
+                height: 250px
+              stroke:
+                show: false
+                width: 4
+            card_mod:
+              style: |
+                #header__title {
+                  color: #FFFFFF !important;
+                  text-align: center;
+                  font-size: 14px !important;
+                }
+                .apexcharts-gridlines-horizontal {
+                  visibility: hidden;
+                }
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                secondary: >-
+                  {% if
+                  states('sensor.thuisbatterij_battery_state')=="Discharging" %}
+                  Batterij wordt ontladen {% elif
+                  states('sensor.thuisbatterij_battery_state')=="Charging" %}
+                  Batterij wordt opgeladen {% else %} Balans bewaken {% endif %}
+                primary: >-
+                  Batterijpercentage {{states('sensor.thuisbatterij_percentage')
+                  | round(0)}}%
+                icon: >-
+                  {% set battery_level =
+                  states('sensor.thuisbatterij_percentage') | round(0) %} {% set
+                  battery_round = (battery_level|int / 10)|int * 10 %} {% if
+                  states('sensor.thuisbatterij_battery_state')=="Operative" %}
+
+                    {% if battery_round >= 100 %}
+                    mdi:battery
+                    {% elif battery_round > 0 %}
+                    mdi:battery-{{ battery_round }}
+                    {% else %}
+                    mdi:battery-low
+                    {% endif %}
+
+                  {% elif
+                  states('sensor.thuisbatterij_battery_state')=="Charging" %}
+                  mdi:battery-plus {% elif
+                  states('sensor.thuisbatterij_battery_state')=="Discharging" %}
+                  mdi:battery-negative {% else %} mdi:battery {% endif %}
+                icon_color: green
+                picture: ''
+                entity: sensor.thuisbatterij_percentage
+                tap_action:
+                  action: more-info
+                card_mod:
+                  style: |-
+                    ha-state-icon {
+                      {% if states('sensor.thuisbatterij_battery_state')=="Discharging" %}
+                      animation: discharge 3s steps(1) infinite;
+                      {% elif states('sensor.thuisbatterij_battery_state')=="Charging" %}
+                      animation: charge 3s steps(1) infinite;
+                      {% endif %}
+                    } @keyframes charge {
+                        0% { clip-path: polygon(0% 0%, 0% 100%, 34% 100%, 34% 24%, 67% 24%, 67% 84%, 34% 84%, 34% 100%, 100% 100%, 100% 0%); }
+                        20% { clip-path: polygon(0% 0%, 0% 100%, 34% 100%, 34% 24%, 67% 24%, 67% 64%, 34% 64%, 34% 100%, 100% 100%, 100% 0%); }
+                        40% { clip-path: polygon(0% 0%, 0% 100%, 34% 100%, 34% 24%, 67% 24%, 67% 44%, 34% 44%, 34% 100%, 100% 100%, 100% 0%); }
+                        60% { clip-path: polygon(0% 0%, 0% 100%, 34% 100%, 34% 24%, 67% 24%, 67% 24%, 34% 24%, 34% 100%, 100% 100%, 100% 0%); }
+                    } @keyframes discharge {
+                        60% { clip-path: polygon(0% 0%, 0% 100%, 34% 100%, 34% 24%, 67% 24%, 67% 84%, 34% 84%, 34% 100%, 100% 100%, 100% 0%); }
+                        40% { clip-path: polygon(0% 0%, 0% 100%, 34% 100%, 34% 24%, 67% 24%, 67% 64%, 34% 64%, 34% 100%, 100% 100%, 100% 0%); }
+                        20% { clip-path: polygon(0% 0%, 0% 100%, 34% 100%, 34% 24%, 67% 24%, 67% 44%, 34% 44%, 34% 100%, 100% 100%, 100% 0%); }
+                        0% { clip-path: polygon(0% 0%, 0% 100%, 34% 100%, 34% 24%, 67% 24%, 67% 24%, 34% 24%, 34% 100%, 100% 100%, 100% 0%); }
+                    }
+              - type: custom:mushroom-template-card
+                primary: Dynamic Load Balancing
+                secondary: >-
+                  {{states('binary_sensor.thuisbatterij_dynamic_load_balancing_overload_active')}}
+                icon: mdi:scale-balance
+                icon_color: ''
+                fill_container: false
+                multiline_secondary: false
+                entity: >-
+                  binary_sensor.thuisbatterij_dynamic_load_balancing_overload_active
+                tap_action:
+                  action: more-info
+                card_mod:
+                  style: |-
+                    ha-card {
+                      {% if states('binary_sensor.thuisbatterij_dynamic_load_balancing_overload_active')!='off' %}
+                      background-color: blue;
+                      {% endif %}
+                    }
+          - type: horizontal-stack
+            cards:
+              - graph: line
+                type: sensor
+                entity: sensor.thuisbatterij_total
+                detail: 1
+                name: Vergoeding Totaal
+        view_layout:
+          grid-area: sidebar2
+      - type: entities
+        entities:
+          - entity: sensor.www_meuleman_eu_vervaldatum_certificaat
+            name: Vervaldatum certificaat
+        title: www.meuleman.eu
+      - type: gauge
+        entity: sensor.electricity_meter_energieverbruik
+        name: Energie verbruik
+        max: 17
+        severity:
+          green: 0
+          yellow: 3
+          red: 7
+        needle: true
+      - type: gauge
+        entity: sensor.electricity_meter_energieproductie
+        name: Energie productie
+        max: 17
+        severity:
+          green: 0
+          yellow: 3
+          red: 7
+        needle: true
+      - type: entities
+        entities:
+          - entity: sensor.electricity_meter_energieverbruik_fase_l1
+            name: Verbruik Fase L1
+          - entity: sensor.electricity_meter_energieverbruik_fase_l2
+            name: Verbruik Fase L2
+          - entity: sensor.electricity_meter_energieverbruik_fase_l3
+            name: Verbruik Fase L3
+          - entity: sensor.electricity_meter_energieproductie_fase_l1
+            name: Productie Fase L1
+          - entity: sensor.electricity_meter_energieproductie_fase_l2
+            name: Productie Fase L2
+          - entity: sensor.electricity_meter_energieproductie_fase_l3
+            name: Productie Fase L3
+          - entity: sensor.solaredge_dak_i1_ac_power
+            name: Zonnepanelen Dak (L2)
+            secondary_info: none
+          - entity: sensor.solaredge_schuur_i2_ac_power
+            name: Zonnepanelen Schuur (L3)
+        title: Elektriciteits Meter
+      - type: vertical-stack
+        cards:
+          - type: custom:mushroom-chips-card
+            chips:
+              - type: entity
+                entity: sensor.stopcontact_wasmachine_energy
+                use_entity_picture: true
+              - type: entity
+                entity: sensor.stopcontact_wasmachine_power
+              - type: spacer
+              - type: entity
+                entity: switch.stopcontact_wasmachine
+                icon_color: accent
+            alignment: justify
+        title: Test
+      - cardstyle: lite
+        wide: false
+        large_font: true
+        show_solar: true
+        show_battery: true
+        show_grid: true
+        center_no_grid: false
+        card_height: 100%
+        card_width: 100%
+        decimal_places: 3
+        decimal_places_energy: 2
+        dynamic_line_width: true
+        max_line_width: 4
+        min_line_width: 1
+        inverter:
+          modern: true
+          colour: '#db3939'
+          autarky: power
+          model: sunsynk
+          auto_scale: true
+          three_phase: true
+          navigate: ''
+          label_autarky: ''
+          label_ratio: ''
+        battery:
+          energy: 20000
+          shutdown_soc: 7
+          show_daily: true
+          count: 1
+          max_power: 20000
+          invert_power: true
+          soc_end_of_charge: 100
+          animate: true
+          dynamic_colour: true
+          show_remaining_energy: true
+          label_daily_chrg: Laden
+          label_daily_dischrg: Ontladen
+          colour: '#d01bab'
+        battery2:
+          energy: 0
+          shutdown_soc: 20
+          soc_end_of_charge: 100
+          invert_power: false
+          hide_soc: false
+          colour: '#ffc0cb'
+          show_remaining_energy: true
+          remaining_energy_to_shutdown: false
+          show_absolute: false
+          auto_scale: true
+          dynamic_colour: true
+          linear_gradient: true
+          animate: true
+          path_threshold: 100
+          navigate: ''
+          invert_flow: false
+        solar:
+          show_daily: true
+          mppts: 2
+          pv1_name: Dak
+          pv2_name: Schuur
+          pv1_max_power: 2000
+          pv2_max_power: 4500
+          auto_scale: false
+          dynamic_colour: true
+          custom_label: Dagelijkse Zonne Energie
+        load:
+          show_daily: true
+          dynamic_colour: false
+          label_daily_load: Today
+        grid:
+          show_daily_buy: false
+          show_daily_sell: false
+          show_nonessential: true
+          auto_scale: false
+        type: custom:sunsynk-power-flow-card
+        entities:
+          use_timer_248: switch.sunsynk_toggle_system_timer
+          priority_load_243: switch.sunsynk_toggle_priority_load
+          inverter_voltage_154: sensor.solis_a_phase_voltage
+          load_frequency_192: sensor.solis_grid_frequency
+          inverter_power_175: sensor.sunsynk_inverter_power
+          grid_connected_status_194: binary_sensor.sunsynk_grid_connected_status
+          inverter_status_59: sensor.sunsynk_overall_state
+          day_battery_charge_70: sensor.solis_today_battery_charge_energy
+          day_battery_discharge_71: sensor.solis_today_battery_discharge_energy
+          battery_soc_184: sensor.solis_battery_soc
+          grid_power_169: sensor.electricity_house
+          day_grid_import_76: sensor.sunsynk_day_grid_import
+          day_grid_export_77: sensor.sunsynk_day_grid_export
+          grid_ct_power_172: sensor.electricity_l1_3
+          day_load_energy_84: sensor.energy_usage_house
+          essential_power: none
+          nonessential_power: none
+          aux_power_166: sensor.sunsynk_aux_power
+          day_pv_energy_108: sensor.zonnepalen_levering_dagelijks
+          pv1_power_186: sensor.solaredge_schuur_i2_ac_power
+          pv2_power_187: sensor.solaredge_dak_i1_ac_power
+          pv1_voltage_109: sensor.solaredge_dak_i1_ac_voltage_ab
+          pv1_current_110: sensor.solaredge_dak_i1_ac_current
+          pv2_voltage_111: sensor.solaredge_schuur_i2_ac_voltage_ab
+          pv2_current_112: sensor.solaredge_schuur_i2_ac_current
+          grid_ct_power_total: sensor.electriciteit_meter_3
+          grid_ct_power_L3: sensor.electricity_l3_3
+          grid_ct_power_L2: sensor.electricity_l2_3
+          battery_power_190: sensor.solis_battery_power
+          battery_voltage_183: sensor.solis_battery_voltage
+          battery_temp_182: sensor.solis_temperature
+          battery_soh: sensor.solis_battery_soh
+          battery_status: sensor.solis_status
+          battery_current_direction: sensor.solis_battery_current_direction
+      - type: custom:power-flow-card-plus
+        entities:
+          grid:
+            entity:
+              consumption: sensor.electricity_meter_energieverbruik
+              production: sensor.electricity_meter_energieproductie
+            secondary_info: {}
+          solar:
+            entity: sensor.solaredge_schuur_i2_ac_power
+            secondary_info:
+              entity: sensor.solaredge_dak_i1_ac_power
+            name: 'Zonnepanelen '
+      - type: custom:stack-in-card
+        cards:
+          - type: custom:gauge-card-pro
+            entity: sensor.electriciteit_meter_3
+            name: Totaal
+            needle: true
+            round: small
+            gradient: true
+            gradient_resolution: high
+            min: -17
+            segments:
+              - from: -7
+                color: var(--green-color)
+              - from: -2
+                color: var(--yellow-color)
+              - from: 2
+                color: var(--orange-color)
+              - from: 5
+                color: var(--red-color)
+            max: 17
+            titles:
+              primary: '{{ state_attr(entity, ''friendly_name'') }}'
+            card_mod:
+              style: |
+                ha-card { --ha-card-border-width: 0; }
+          - type: custom:gauge-card-pro
+            entity: sensor.electricity_l1_3
+            name: L1
+            needle: true
+            round: small
+            gradient: true
+            gradient_resolution: high
+            min: -7
+            segments:
+              - from: -7
+                color: var(--green-color)
+              - from: -2
+                color: var(--yellow-color)
+              - from: 2
+                color: var(--orange-color)
+              - from: 5
+                color: var(--red-color)
+            max: 7
+            titles:
+              primary: '{{ state_attr(entity, ''friendly_name'') }}'
+            card_mod:
+              style: |
+                ha-card { --ha-card-border-width: 0; }
+          - type: custom:gauge-card-pro
+            entity: sensor.electricity_l2_3
+            name: ''
+            needle: true
+            round: small
+            gradient: true
+            gradient_resolution: high
+            min: -7
+            segments:
+              - from: -7
+                color: var(--green-color)
+              - from: -2
+                color: var(--yellow-color)
+              - from: 2
+                color: var(--orange-color)
+              - from: 5
+                color: var(--red-color)
+            max: 7
+            titles:
+              primary: '{{ state_attr(entity, ''friendly_name'') }}'
+            card_mod:
+              style: |
+                ha-card { --ha-card-border-width: 0; }
+          - type: custom:gauge-card-pro
+            entity: sensor.electricity_l3_3
+            name: ''
+            needle: true
+            round: small
+            gradient: true
+            gradient_resolution: high
+            min: -7
+            segments:
+              - from: -7
+                color: var(--green-color)
+              - from: -2
+                color: var(--yellow-color)
+              - from: 2
+                color: var(--orange-color)
+              - from: 5
+                color: var(--red-color)
+            max: 7
+            titles:
+              primary: '{{ state_attr(entity, ''friendly_name'') }}'
+            card_mod:
+              style: |
+                ha-card { --ha-card-border-width: 0; }
+          - type: button
+            name: Meterkast Groepen
+            tap_action:
+              action: fire-dom-event
+              browser_mod:
+                service: browser_mod.popup
+                data:
+                  title: Meterkast Groepen
+                  content: >
+                    <strong style="color: red;">L1:</strong><br> <p> 9)
+                    &nbsp&nbspWasmachine </p> <p>10) &nbspOven</p> <p> 11)
+                    &nbspVaatwasser</p> <p> 12) &nbspKelder, Garage, Carport</p>
+                    <p> 14) &nbspWarmtepomp Boiler.</p> <strong style="color:
+                    red;">L2:</strong><br> <p> 1) &nbsp&nbspKeuken,
+                    Bijkeuken</p> <p> 2) &nbsp&nbspDroger</p> <p> 3)
+                    &nbsp&nbspHalm Portaal, Toilet, Overloop</p> <p> 4)
+                    &nbsp&nbspWoonkamer</p> <p> 13) Technisch Ruimte, WP
+                    Binnenunit.</p> <strong style="color: red;">L3:</strong><br>
+                    <p> 5) &nbsp&nbspEetkamer, Hobbykamer, Meterkast</p> <p> 6)
+                    &nbsp&nbspSlaapkamer Achter</p> <p> 7) &nbsp&nbspSlaapkamer
+                    Voor, Plafond Licht Woonkamer</p> <p> 8)
+                    &nbsp&nbspBadkamers, Technische Ruimte</p> <p> 13) WP
+                    Buitenunit.</p>
+  - type: masonry
+    path: info
+    title: Info
+    cards:
+      - type: entities
+        entities:
+          - entity: sensor.solaredge_dak_i1_ac_power
+            name: AC Power
+          - entity: sensor.solaredge_dak_i1_ac_frequency
+            name: AC Frequency
+          - entity: sensor.solaredge_dak_i1_ac_voltage_ab
+            name: AC Voltage AB
+          - entity: sensor.solaredge_dak_i1_temp_sink
+            name: Temp Sink
+          - entity: sensor.solaredge_dak_i1_ac_energy
+            name: AC Energy
+        title: Solaredge dak I1
+      - type: entities
+        entities:
+          - entity: sensor.solaredge_schuur_i2_ac_power
+            name: AC Power
+          - entity: sensor.solaredge_schuur_i2_ac_frequency
+            name: AC Frequency
+          - entity: sensor.solaredge_schuur_i2_ac_voltage_ab
+            name: AC Voltage AB
+          - entity: sensor.solaredge_schuur_i2_temp_sink
+            name: Temp Sink
+          - entity: sensor.solaredge_schuur_i2_ac_energy
+            name: AC Energy
+        title: Solaredge schuur I2
+      - type: grid
+        square: true
+        columns: 3
+        cards:
+          - type: picture-entity
+            entity: person.hante
+            aspect_ratio: '1'
+            show_name: false
+            image: >-
+              data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'
+              viewBox='0 0 50 50' width='50' height='50'
+              style='background-color:%23b3e5fc'%3E%3Cg%3E%3Ctext
+              font-family='roboto' x='50%25' y='50%25' text-anchor='middle'
+              stroke='%23212121' font-size='1.3em'
+              dy='.3em'%3EH%3C/text%3E%3C/g%3E%3C/svg%3E
+          - type: picture-entity
+            entity: person.piret
+            aspect_ratio: '1'
+            show_name: false
+            image: >-
+              data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'
+              viewBox='0 0 50 50' width='50' height='50'
+              style='background-color:%23b3e5fc'%3E%3Cg%3E%3Ctext
+              font-family='roboto' x='50%25' y='50%25' text-anchor='middle'
+              stroke='%23212121' font-size='1.3em'
+              dy='.3em'%3EP%3C/text%3E%3C/g%3E%3C/svg%3E
+          - type: picture-entity
+            entity: person.esme
+            aspect_ratio: '1'
+            show_name: false
+            image: >-
+              data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'
+              viewBox='0 0 50 50' width='50' height='50'
+              style='background-color:%23b3e5fc'%3E%3Cg%3E%3Ctext
+              font-family='roboto' x='50%25' y='50%25' text-anchor='middle'
+              stroke='%23212121' font-size='1.3em'
+              dy='.3em'%3EE%3C/text%3E%3C/g%3E%3C/svg%3E
+          - type: picture-entity
+            entity: person.romi
+            aspect_ratio: '1'
+            show_name: false
+            image: >-
+              data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'
+              viewBox='0 0 50 50' width='50' height='50'
+              style='background-color:%23b3e5fc'%3E%3Cg%3E%3Ctext
+              font-family='roboto' x='50%25' y='50%25' text-anchor='middle'
+              stroke='%23212121' font-size='1.3em'
+              dy='.3em'%3ER%3C/text%3E%3C/g%3E%3C/svg%3E
+          - type: picture-entity
+            entity: person.vera
+            aspect_ratio: '1'
+            show_name: false
+            image: >-
+              data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'
+              viewBox='0 0 50 50' width='50' height='50'
+              style='background-color:%23b3e5fc'%3E%3Cg%3E%3Ctext
+              font-family='roboto' x='50%25' y='50%25' text-anchor='middle'
+              stroke='%23212121' font-size='1.3em'
+              dy='.3em'%3EV%3C/text%3E%3C/g%3E%3C/svg%3E
+      - type: custom:plotly-graph
+        entities:
+          - entity: sensor.electricity_meter_energieverbruik
+          - entity: sensor.electricity_meter_energieproductie
+        hours_to_show: 24
+        refresh_interval: 10
+      - type: entities
+        entities:
+          - entity: switch.remko_mqtt_absence_mode
+          - entity: switch.remko_mqtt_party_mode
+          - entity: number.remko_mqtt_out_temp_corr
+          - entity: number.remko_mqtt_temp_req
+          - entity: number.remko_mqtt_min_work_temp
+          - entity: select.remko_mqtt_main_mode
+        title: Remko MQTT
+        show_header_toggle: false
+      - type: entities
+        entities:
+          - entity: sensor.remko_mqtt_opmode
+          - entity: sensor.remko_mqtt_out_temp
+          - entity: sensor.remko_mqtt_comp_starts
+          - entity: sensor.remko_mqtt_comp_hours
+          - entity: sensor.wp_dagelijks_verbruik
+            icon: mdi:home-lightning-bolt
+          - entity: sensor.remko_mqtt_el_consumption
+          - entity: sensor.remko_mqtt_el_inside_unit
+            name: Binnenunit opgenomen vermogen
+          - entity: sensor.remko_mqtt_verw_water_temp
+          - entity: sensor.remko_mqtt_return_floor_temp
+          - entity: sensor.remko_mqtt_floor_temp
+        title: Remko MQTT
+      - type: entities
+        entities:
+          - entity: sensor.thuisbatterij_battery_cycles
+            name: Battery cycles
+          - entity: sensor.thuisbatterij_battery_state
+            name: Battery state
+          - entity: sensor.thuisbatterij_delivery_today
+            name: Delivery today
+          - entity: binary_sensor.thuisbatterij_dynamic_charging_enabled
+            name: Dynamic charging enabled
+          - entity: binary_sensor.thuisbatterij_dynamic_load_balancing_overload_active
+            name: Dynamic load balancing overload active
+          - entity: >-
+              binary_sensor.thuisbatterij_dynamic_load_balancing_overload_enabled
+            name: Dynamic load balancing overload enabled
+          - entity: sensor.thuisbatterij_last_measured
+            name: Last measured
+          - entity: binary_sensor.thuisbatterij_manual_control_enabled
+            name: Manual control enabled
+          - entity: sensor.thuisbatterij_percentage
+            name: Percentage
+          - entity: sensor.thuisbatterij_production_today
+            name: Production today
+          - entity: binary_sensor.thuisbatterij_self_consumption_enabled
+            name: Self consumption enabled
+          - entity: sensor.thuisbatterij_today
+            name: Today
+          - entity: sensor.thuisbatterij_total
+            name: Total
+        title: Thuisbatterij
+      - type: entities
+        entities:
+          - entity: sensor.zonneplan_current_electricity_tariff
+            name: Current electricity tariff
+          - entity: sensor.zonneplan_current_usage
+            name: Current usage
+          - entity: sensor.zonneplan_electricity_consumption_today
+            name: Electricity consumption today
+          - entity: sensor.zonneplan_electricity_returned_today
+            name: Electricity returned today
+          - entity: sensor.zonneplan_status_tip
+            name: Status tip
+        title: Zonneplan
+      - type: entities
+        entities:
+          - entity: switch.shelly_remko_boiler_switch_0
+            name: Temp. 55C
+        title: Remko Boiler MAX temp
+      - type: entities
+        entities:
+          - entity: switch.shelly_remko_wp_switch_0
+            name: Koelen
+        title: WP Verwarmen/Koel modus
+    badges: []
