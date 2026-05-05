@@ -1,0 +1,49 @@
+button_card_templates:
+  nozzle_temp:
+    show_state: true
+    show_label: true
+    layout: vertical
+    size: 40%
+    styles:
+      card:
+        - border-radius: 12px
+        - padding: 12px
+        - color: white
+        - font-weight: bold
+        - animation: |
+            [[[
+              const temp = Number(entity.state);
+              const target = Number(states[entity.entity_id.replace('_temperature','_target')].state);
+              if (target > 0 && temp < target - 3) {
+                return "blink 1s ease-in-out infinite";
+              }
+              return "none";
+            ]]]
+        - background: |
+            [[[
+              const temp = Number(entity.state);
+              const target = Number(states[entity.entity_id.replace('_temperature','_target')].state);
+
+              // Idle → grijs
+              if (target === 0) {
+                return "rgb(80,80,80)";
+              }
+
+              // Kleurverloop blauw → rood
+              const t = Math.min(Math.max(temp, 0), 250) / 250;
+              const r = Math.round(255 * t);
+              const b = Math.round(255 * (1 - t));
+              return `rgb(${r}, 0, ${b})`;
+            ]]]
+      state:
+        - font-size: 18px
+      label:
+        - font-size: 12px
+        - opacity: 0.6
+        - padding-top: 4px
+    extra_styles: |
+      @keyframes blink {
+        0% { filter: brightness(1); }
+        50% { filter: brightness(1.7); }
+        100% { filter: brightness(1); }
+      }
